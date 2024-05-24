@@ -12,6 +12,7 @@ pub fn main() !void {
 pub fn cat() !void {
     var options = std.ArrayList([]u8).init(local_allocator);
     var files_content = std.ArrayList([]u8).init(local_allocator);
+    var output_lines = std.ArrayList([]u8).init(local_allocator);
     var args = std.process.args();
     const stdout = std.io.getStdOut();
 
@@ -45,18 +46,28 @@ pub fn cat() !void {
         }
     }
 
-    for (files_content.items) |file_buffer| {
-        if (options.items.len == 0) {
+    if (options.items.len == 0) {
+        for (files_content.items) |file_buffer| {
             _ = try stdout.write(file_buffer);
             continue;
         }
-        for (options.items) |f_arg| {
-            if (std.mem.eql(u8, f_arg, "-n") or std.mem.eql(u8, f_arg, "--numbers")) {
-                var itt = std.mem.split(u8, file_buffer, "\n");
+        return;
+    }
 
+    for (files_content.items) |file_buffer| {
+        var itt = std.mem.split(u8, file_buffer, "\n");
+        while (itt.next()) |line| {
+            try output_lines.append(@ptrCast(@constCast(line)));
+        }
+
+        for (options.items) |f_arg| {
+            if (std.mem.eql(u8, f_arg, "-b") or std.mem.eql(u8, f_arg, "--numbers")) {
                 var counter: u16 = 1;
-                while (itt.next()) |line| {
-                    if (itt.peek() == null) break;
+
+                for (0.., output_lines.items) |outer_index, line| {
+                    if (std.mem.eql(u8, line, "")) {
+                        continue;
+                    }
 
                     const num_str = try std.fmt.allocPrint(
                         local_allocator,
@@ -72,13 +83,53 @@ pub fn cat() !void {
 
                     const new_str = try std.fmt.allocPrint(
                         local_allocator,
-                        "{s}{s}  {s}\n",
+                        "{s}{s}  {s}",
                         .{ left_pad, num_str, line },
                     );
-                    _ = try stdout.write(new_str);
+                    output_lines.items[outer_index] = new_str;
+                    counter += 1;
+                }
+            } else if (std.mem.eql(u8, f_arg, "-n") or std.mem.eql(u8, f_arg, "--numbers")) {
+                var counter: u16 = 1;
+
+                for (0.., output_lines.items) |outer_index, line| {
+                    const num_str = try std.fmt.allocPrint(
+                        local_allocator,
+                        "{d}",
+                        .{counter},
+                    );
+
+                    const left_pad = try local_allocator.alloc(u8, 6 - num_str.len);
+
+                    for (0..left_pad.len) |index| {
+                        left_pad[index] = " ".*[0];
+                    }
+
+                    const new_str = try std.fmt.allocPrint(
+                        local_allocator,
+                        "{s}{s}  {s}",
+                        .{ left_pad, num_str, line },
+                    );
+                    output_lines.items[outer_index] = new_str;
                     counter += 1;
                 }
             }
+
+            if (std.mem.eql(u8, f_arg, "-E") or std.mem.eql(u8, f_arg, "--show-ends")) {
+                for (0.., output_lines.items) |outer_index, line| {
+                    const new_str = try std.fmt.allocPrint(
+                        local_allocator,
+                        "{s}{s}",
+                        .{ line, "$" },
+                    );
+                    output_lines.items[outer_index] = new_str;
+                }
+            }
         }
+    }
+
+    for (output_lines.items) |line| {
+        _ = try stdout.write(line);
+        _ = try stdout.write("\n");
     }
 }
