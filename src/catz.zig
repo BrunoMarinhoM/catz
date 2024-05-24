@@ -1,10 +1,8 @@
 const std = @import("std");
-const File = std.fs.File;
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 const child_allocator = gpa.allocator();
 var arena_allocator = std.heap.ArenaAllocator.init(child_allocator);
 const local_allocator = arena_allocator.allocator();
-const print = std.debug.print;
 const cwd = std.fs.cwd();
 
 pub fn main() !void {
