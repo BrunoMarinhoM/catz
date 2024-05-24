@@ -19,8 +19,13 @@ pub fn cat() !void {
     //skips the calling (cat)
     _ = args.skip();
 
-    while (args.next()) |arg| {
+    outter: while (args.next()) |arg| {
         if (std.mem.startsWith(u8, arg, "-")) {
+            for (options.items) |current_item| {
+                if (std.mem.eql(u8, arg, current_item)) {
+                    continue :outter;
+                }
+            }
             try options.append(@ptrCast(@constCast(arg)));
         } else {
             const file_path = arg;
