@@ -1,18 +1,28 @@
 const std = @import("std");
 const File = std.fs.File;
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-const local_allocator = gpa.allocator();
+const child_allocator = gpa.allocator();
+var arena_allocator = std.heap.ArenaAllocator.init(child_allocator);
+const local_allocator = arena_allocator.allocator();
 const print = std.debug.print;
 const cwd = std.fs.cwd();
 
 pub fn main() !void {
     try cat();
+    std.debug.assert(gpa.deinit() == .ok);
 }
 
 pub fn cat() !void {
     var options = std.ArrayList([]u8).init(local_allocator);
     var files_content = std.ArrayList([]u8).init(local_allocator);
     var output_lines = std.ArrayList([]u8).init(local_allocator);
+    defer {
+        options.deinit();
+        output_lines.deinit();
+        files_content.deinit();
+        arena_allocator.deinit();
+    }
+
     var args = std.process.args();
     const stdout = std.io.getStdOut();
 
@@ -115,6 +125,7 @@ pub fn cat() !void {
                         "{s}{s}  {s}",
                         .{ left_pad, num_str, line },
                     );
+
                     output_lines.items[outer_index] = new_str;
                     counter += 1;
                 }
